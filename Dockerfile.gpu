@@ -1,0 +1,14 @@
+# Bản dùng GPU NVIDIA (server có card + NVIDIA Container Toolkit). Build: docker build -f Dockerfile.gpu -t az-email:gpu .
+FROM paddlepaddle/paddle:3.0.0-gpu-cuda11.8-cudnn8.9-trt8.6
+RUN pip install --no-cache-dir paddleocr==2.10.0 pillow==11.0.0
+RUN useradd -r -m -u 10001 azmail
+USER azmail
+RUN python -c "from paddleocr import PaddleOCR; PaddleOCR(use_angle_cls=False, lang='en', show_log=False)"
+WORKDIR /srv/az-email
+COPY --chown=azmail app/ app/
+USER root
+RUN mkdir -p /srv/az-email/data && chown azmail /srv/az-email/data
+USER azmail
+ENV HOST=0.0.0.0 PORT=8889 DATA_DIR=/srv/az-email/data OCR_ENGINE=paddle OCR_GPU=1 PYTHONUNBUFFERED=1
+EXPOSE 8889
+CMD ["python", "app/web.py"]

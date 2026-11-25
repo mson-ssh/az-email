@@ -1,0 +1,10 @@
+services:
+  az-email:
+    build: .
+    container_name: az-email
+    restart: unless-stopped
+    env_file: .env                 # EMAIL_KEY_USER, EMAIL_KEY_PASS (bắt buộc)
+    ports:
+      - "127.0.0.1:8889:8889"      # chỉ mở cho reverse proxy HTTPS trên cùng máy (xem README)
+    volumes:
+      - ./data:/srv/az-email/data  # ma_ncc.json (mã hàng nhà cung cấp) – KHÔNG chứa key
