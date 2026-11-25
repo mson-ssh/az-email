@@ -53,9 +53,49 @@ Nút **Paste ở đây!** (`navigator.clipboard.read`) và **Sao chép email** (
 - **Nginx + certbot:** `proxy_pass http://127.0.0.1:8889;`, đặt `client_max_body_size 20m;` để dán ảnh lớn.
 - **Cloudflare Tunnel:** `cloudflared tunnel --url http://127.0.0.1:8889`, không cần mở cổng.
 
+## 4b. Tích hợp vào CRM https://azcrm.store
+
+AZ Email **không đứng riêng**. Nó là một tính năng nhỏ trong CRM LaptopAZ (azcrm.store). Domain, HTTPS và reverse proxy do admin CRM quản lý.
+
+| Mục | Giá trị đề xuất |
+|---|---|
+| URL | `https://azcrm.store/email/` |
+| Biến môi trường | `BASE_PATH=/email` |
+| Menu CRM (sidebar) | **Đơn hàng → Gửi key bản quyền** (hoặc mục khác admin chọn) |
+| Container | `az-email:8889`, chỉ mạng nội bộ. Không mở cổng ra Internet |
+
+**Reverse proxy** (cùng domain với CRM, ví dụ Nginx):
+```nginx
+location = /email { return 301 /email/; }
+location /email/ {
+    proxy_pass http://127.0.0.1:8889;        # giữ nguyên tiền tố /email (app tự xử lý BASE_PATH)
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    client_max_body_size 20m;                # dán ảnh chụp màn hình
+    proxy_read_timeout 120s;                 # OCR ảnh lớn
+}
+```
+App nhận được cả đường dẫn còn tiền tố `/email/...` lẫn đã bị cắt (`/...`). Trong trang, JS gọi API theo `BASE` = `BASE_PATH`.
+
+**Mở từ menu CRM**, chọn một trong hai cách:
+- **Mở trang** `https://azcrm.store/email/` (tab mới hoặc cùng tab).
+- **Nhúng iframe** trong layout CRM, thêm `?embed=1` để ẩn thanh tiêu đề riêng:
+  ```html
+  <iframe src="/email/?embed=1" allow="clipboard-read; clipboard-write" style="width:100%;height:100%;border:0"></iframe>
+  ```
+  Bắt buộc có `allow="clipboard-read; clipboard-write"`, nếu thiếu thì nút **Paste ở đây!** và **Sao chép email** không chạy trong iframe.
+
+**Đăng nhập:**
+- `AUTH=basic` (mặc định): app hỏi tài khoản riêng (`EMAIL_KEY_USER` / `EMAIL_KEY_PASS`).
+- `AUTH=off`: bỏ hộp đăng nhập riêng, dựa vào đăng nhập của CRM. **Chỉ dùng khi** proxy CRM đã chặn người chưa đăng nhập trước `/email/`, **và** container không truy cập được từ bên ngoài.
+
+**Kiểm tra sau tích hợp:**
+`https://azcrm.store/email/healthz` → `ok`. Mở `https://azcrm.store/email/`, bấm Paste với email mẫu, khung kết quả phải xanh "Dữ liệu hợp lệ".
+
 ## 5. Biến môi trường (`.env`)
 
-Bắt buộc: `EMAIL_KEY_PASS`. Thiếu biến này thì chương trình dừng.
+Bắt buộc: `EMAIL_KEY_PASS` (trừ khi `AUTH=off`). Thiếu biến này thì chương trình dừng.
 
 Tuỳ chọn:
 
@@ -68,6 +108,8 @@ Tuỳ chọn:
 | `OCR_ENGINE` | `auto` | `paddle`, `vision` hoặc `tesseract` |
 | `OCR_GPU` | `0` | `1` = PaddleOCR dùng GPU |
 | `OCR_LANG` | `vie+eng` | Ngôn ngữ cho Tesseract |
+| `BASE_PATH` | *(trống)* | Tiền tố đường dẫn khi chạy trong CRM, VD `/email` |
+| `AUTH` | `basic` | `basic` hoặc `off` (xem mục 4b) |
 | `AUTH_BYPASS_LOCAL` | `0` | `1` = mở từ 127.0.0.1 không hỏi mật khẩu |
 
 `AUTH_BYPASS_LOCAL` chỉ bật trên máy cá nhân, **không bật** sau reverse proxy.

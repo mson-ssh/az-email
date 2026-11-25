@@ -3,8 +3,8 @@ services:
     build: .
     container_name: az-email
     restart: unless-stopped
-    env_file: .env                 # EMAIL_KEY_USER, EMAIL_KEY_PASS (bắt buộc)
+    env_file: .env                 # EMAIL_KEY_USER, EMAIL_KEY_PASS, BASE_PATH=/email (tích hợp azcrm.store)
     ports:
-      - "127.0.0.1:8889:8889"      # chỉ mở cho reverse proxy HTTPS trên cùng máy (xem README)
+      - "127.0.0.1:8889:8889"      # chỉ cho reverse proxy của CRM azcrm.store trên cùng máy (REQUIREMENTS mục 4b)
     volumes:
       - ./data:/srv/az-email/data  # ma_ncc.json (mã hàng nhà cung cấp) – KHÔNG chứa key

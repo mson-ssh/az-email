@@ -4,4 +4,5 @@ Web app nội bộ (Python stdlib + PaddleOCR) để soạn email gửi key bả
 
 - Chạy: `cp .env.example .env && docker compose up -d --build` → `127.0.0.1:8889`, cần HTTPS phía trước.
 - Code: `app/web.py` (server, phân tích, OCR, auth) · `app/tao_email_key.py` (mẫu email, `SAN_PHAM`, `THUAT_NGU`) · `app/ma_ncc.default.json` (mã nhà cung cấp → sản phẩm).
-- Cài đặt, cấu hình, kiểm tra, quy tắc: [REQUIREMENTS.md](REQUIREMENTS.md).
+- Triển khai: là **một tính năng trong CRM https://azcrm.store**, chạy dưới đường dẫn `https://azcrm.store/email` (`BASE_PATH=/email`), mục menu đề xuất *Đơn hàng → Gửi key bản quyền*. Admin lo HTTPS / reverse proxy.
+- Cài đặt, cấu hình, tích hợp CRM, kiểm tra, quy tắc: [REQUIREMENTS.md](REQUIREMENTS.md).

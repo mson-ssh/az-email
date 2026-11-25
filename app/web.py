@@ -40,7 +40,9 @@ BO_QUA_LOCAL = os.environ.get('AUTH_BYPASS_LOCAL', '0') == '1'
 DATA = Path(os.environ.get('DATA_DIR', GOC / 'data'))
 OCR_ENGINE = os.environ.get('OCR_ENGINE', 'auto').lower()     # auto | paddle | vision | tesseract
 OCR_LANG = os.environ.get('OCR_LANG', 'vie+eng')              # chỉ cho tesseract
-OCR_GPU = os.environ.get('OCR_GPU', '0') == '1'               # PaddleOCR dùng GPU NVIDIA (cần image paddlepaddle-gpu)
+OCR_GPU = os.environ.get('OCR_GPU', '0') == '1'
+BASE_PATH = '/' + os.environ.get('BASE_PATH', '').strip('/') if os.environ.get('BASE_PATH', '').strip('/') else ''   # VD /email khi chạy trong azcrm.store/email
+AUTH = os.environ.get('AUTH', 'basic').lower()               # basic | off (off: CRM đã đăng nhập trước, app chỉ nghe mạng nội bộ)               # PaddleOCR dùng GPU NVIDIA (cần image paddlepaddle-gpu)
 
 
 def tao(d):
@@ -419,6 +421,8 @@ body{margin:0;background:var(--nen);color:var(--chu);font:14px/1.5 'Segoe UI',-a
 header{background:var(--the);border-bottom:1px solid var(--ke);padding:12px 20px;display:flex;align-items:center;gap:12px}
 header b{font-size:16px} header span{color:var(--phu)}
 main{display:grid;grid-template-columns:380px 1fr;gap:16px;padding:16px;height:calc(100vh - 53px)}
+body.nhung header{display:none}
+body.nhung main{height:100vh;padding:12px}   /* ?embed=1: nhúng trong CRM (iframe) – ẩn thanh tiêu đề riêng */
 @media (max-width:900px){main{grid-template-columns:1fr;height:auto}}
 .cot{background:var(--the);border:1px solid var(--ke);border-radius:12px;padding:16px;overflow:auto}
 label{display:block;font-weight:600;margin:12px 0 4px} label small{font-weight:400;color:var(--phu)}
@@ -513,6 +517,8 @@ iframe.dt{width:390px;border-left:1px solid var(--ke);border-right:1px solid var
 <script>
 const $ = id => document.getElementById(id);
 const DM = __DM__;
+const BASE = __BASE__;
+if (new URLSearchParams(location.search).get('embed') === '1') document.body.classList.add('nhung');   // tiền tố đường dẫn khi chạy trong CRM, VD '/email'
 let kq = null, hen = null, maNCC = '';
 // ô ngày dạng lịch (yyyy-mm-dd) – mặc định hôm nay; gửi đi dạng dd/mm/yyyy
 const homNay = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
@@ -543,7 +549,7 @@ function duLieu() {
   return d;
 }
 async function capNhat() {
-  const r = await fetch('/tao', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(duLieu())});
+  const r = await fetch(BASE + '/tao', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(duLieu())});
   kq = await r.json();
   $('xem').srcdoc = kq.html; $('tieude').textContent = kq.subject;
   $('bEmail').disabled = !kq.du;
@@ -559,7 +565,7 @@ async function chepHTML(html, txt) {
   await navigator.clipboard.write([new ClipboardItem({'text/html': new Blob([body], {type: 'text/html'}), 'text/plain': new Blob([txt], {type: 'text/plain'})})]);
 }
 $('bEmail').onclick = async () => { try { await capNhat(); await chepHTML(kq.html, kq.txt);
-    if (maNCC && $('sp').value && $('sp').value !== 'khac') fetch('/nho', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ma_ncc: maNCC, sp: $('sp').value, ncc})});
+    if (maNCC && $('sp').value && $('sp').value !== 'khac') fetch(BASE + '/nho', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ma_ncc: maNCC, sp: $('sp').value, ncc})});
     if (ds.length > 1) { ds[chon].xong = true; const t = chon; chonMuc(t); }
     bao('Đã sao chép email' + (ds.length > 1 ? ` mục ${chon + 1}/${ds.length}` : '') + ' – dán vào khung soạn Gmail (Cmd+V).'); } catch (e) { bao('Không sao chép được: ' + e.message, 1); } };
 $('bMoi').onclick = () => { for (const id of ['keys', 'khach']) $(id).value = ''; $('sp').value = ''; hienGP(); $('ptkq').hidden = true; ds = []; $('ngay').value = homNay(); capNhat(); $('keys').focus(); bao('Đã xoá key của đơn trước.'); };
@@ -597,12 +603,12 @@ function chonMuc(i) {
   capNhat();
 }
 async function guiChu(text) {
-  const r = await fetch('/phan_tich', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({text})});
+  const r = await fetch(BASE + '/phan_tich', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({text})});
   apDung(await r.json());
 }
 async function guiAnh(file) {
   $('dan').classList.add('dang'); $('ptkq').innerHTML = '<div class="kq-dau"><div class="kq-icon">…</div><div><b>Đang đọc chữ trong ảnh</b><small>Nhận dạng bằng Apple Vision trên máy</small></div></div>'; $('ptkq').className = 'ptkq dang'; $('ptkq').hidden = false;
-  try { const r = await fetch('/ocr', {method: 'POST', headers: {'Content-Type': file.type || 'image/png'}, body: file}); apDung(await r.json()); }
+  try { const r = await fetch(BASE + '/ocr', {method: 'POST', headers: {'Content-Type': file.type || 'image/png'}, body: file}); apDung(await r.json()); }
   finally { $('dan').classList.remove('dang'); }
 }
 async function xuLy(dt) {
@@ -651,7 +657,15 @@ class H(BaseHTTPRequestHandler):
         self.send_header('Content-Length', str(len(b)))
         self.end_headers(); self.wfile.write(b)
 
+    def duong_dan(self):
+        p = self.path.split('?', 1)[0]
+        if BASE_PATH and (p == BASE_PATH or p.startswith(BASE_PATH + '/')):
+            p = p[len(BASE_PATH):] or '/'
+        return p
+
     def dung_mk(self):
+        if AUTH == 'off':
+            return True
         if BO_QUA_LOCAL and self.client_address[0] in ('127.0.0.1', '::1') and not self.headers.get('X-Forwarded-For') \
                 and not self.headers.get('Cf-Connecting-Ip'):
             return True
@@ -669,18 +683,18 @@ class H(BaseHTTPRequestHandler):
         return False
 
     def do_GET(self):
-        if self.path == '/healthz':
+        if self.duong_dan() == '/healthz':
             return self.gui(200, 'text/plain', 'ok')
         if not self.dung_mk():
             return
-        if self.path in ('/', '/index.html'):
-            return self.gui(200, 'text/html', TRANG.replace('__DM__', json.dumps(danh_muc(), ensure_ascii=False)))
+        if self.duong_dan() in ('/', '/index.html'):
+            return self.gui(200, 'text/html', TRANG.replace('__DM__', json.dumps(danh_muc(), ensure_ascii=False)).replace('__BASE__', json.dumps(BASE_PATH)))
         self.gui(404, 'text/plain', 'Không có')
 
     def do_POST(self):
         if not self.dung_mk():
             return
-        if self.path == '/ocr':
+        if self.duong_dan() == '/ocr':
             n = int(self.headers.get('Content-Length') or 0)
             if not n or n > 20_000_000:
                 return self.gui(413, 'text/plain', 'Ảnh quá lớn')
@@ -689,18 +703,18 @@ class H(BaseHTTPRequestHandler):
                 return self.gui(200, 'application/json', json.dumps(kq, ensure_ascii=False))
             except Exception as ex:
                 return self.gui(500, 'application/json', json.dumps({'loi': f'Không đọc được ảnh: {ex}'}, ensure_ascii=False))
-        if self.path == '/nho':
+        if self.duong_dan() == '/nho':
             n = int(self.headers.get('Content-Length') or 0)
             d = json.loads(self.rfile.read(min(n, 10_000)) or b'{}')
             nho_ma_ncc((d.get('ma_ncc') or '')[:20], d.get('sp') or '', (d.get('ncc') or '')[:40])
             return self.gui(200, 'application/json', '{"ok":true}')
-        if self.path == '/phan_tich':
+        if self.duong_dan() == '/phan_tich':
             n = int(self.headers.get('Content-Length') or 0)
             if n > 100_000:
                 return self.gui(413, 'text/plain', 'Quá lớn')
             d = json.loads(self.rfile.read(n) or b'{}')
             return self.gui(200, 'application/json', json.dumps(tach(d.get('text') or ''), ensure_ascii=False))
-        if self.path != '/tao':
+        if self.duong_dan() != '/tao':
             return self.gui(404, 'text/plain', 'Không có')
         n = int(self.headers.get('Content-Length') or 0)
         if n > 100_000:
@@ -713,8 +727,8 @@ class H(BaseHTTPRequestHandler):
 
 
 if __name__ == '__main__':
-    if not MAT_KHAU:
-        sys.exit('Thiếu EMAIL_KEY_PASS (đặt trong .env hoặc biến môi trường) – không chạy khi chưa có mật khẩu.')
+    if AUTH != 'off' and not MAT_KHAU:
+        sys.exit('Thiếu EMAIL_KEY_PASS (đặt trong .env hoặc biến môi trường) – không chạy khi chưa có mật khẩu (hoặc AUTH=off nếu CRM đã đăng nhập).')
     _gieo_ma_ncc()
-    print(f'AZ Email: http://{HOST}:{PORT}  · OCR: {_bo_doc()}  · dữ liệu: {DATA}  (Ctrl+C để dừng)', flush=True)
+    print(f'AZ Email: http://{HOST}:{PORT}{BASE_PATH or "/"}  · OCR: {_bo_doc()}  · auth: {AUTH}  · dữ liệu: {DATA}  (Ctrl+C để dừng)', flush=True)
     ThreadingHTTPServer((HOST, PORT), H).serve_forever()
